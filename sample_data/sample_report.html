@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrowdStrike Falcon — Security Assessment Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg-primary: #0a0e17;
+    --bg-secondary: #111827;
+    --bg-card: #1a2332;
+    --bg-card-hover: #1f2b3d;
+    --border: #2a3548;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent: #e8272c;
+    --accent-dim: rgba(56, 189, 248, 0.1);
+    --critical: #ef4444;
+    --critical-bg: rgba(239, 68, 68, 0.08);
+    --high: #f97316;
+    --high-bg: rgba(249, 115, 22, 0.08);
+    --medium: #eab308;
+    --medium-bg: rgba(234, 179, 8, 0.08);
+    --low: #22c55e;
+    --low-bg: rgba(34, 197, 94, 0.08);
+    --info-c: #e8272c;
+    --info-bg: rgba(56, 189, 248, 0.08);
+    --font-sans: 'DM Sans', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .noise {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-left h1 {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.25rem;
+  }
+
+  .header-left .subtitle {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .header-right {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .header-right span {
+    display: block;
+  }
+
+  /* Summary Grid */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  /* Risk Score */
+  .risk-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .risk-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: #dc2626;
+  }
+
+  .risk-score-ring {
+    width: 140px;
+    height: 140px;
+    position: relative;
+    margin-bottom: 1rem;
+  }
+
+  .risk-score-ring svg {
+    transform: rotate(-90deg);
+    width: 140px;
+    height: 140px;
+  }
+
+  .risk-score-ring .score-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .risk-score-ring .score-number {
+    font-family: var(--font-mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #dc2626;
+    line-height: 1;
+  }
+
+  .risk-score-ring .score-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .risk-level {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #dc2626;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Severity Cards */
+  .severity-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    align-content: start;
+  }
+
+  .sev-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s;
+  }
+
+  .sev-card:hover {
+    background: var(--bg-card-hover);
+  }
+
+  .sev-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .sev-card.critical::before { background: var(--critical); }
+  .sev-card.high::before { background: var(--high); }
+  .sev-card.medium::before { background: var(--medium); }
+  .sev-card.low::before { background: var(--low); }
+
+  .sev-card .sev-count {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .sev-card.critical .sev-count { color: var(--critical); }
+  .sev-card.high .sev-count { color: var(--high); }
+  .sev-card.medium .sev-count { color: var(--medium); }
+  .sev-card.low .sev-count { color: var(--low); }
+
+  .sev-card .sev-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.25rem;
+  }
+
+  /* Category breakdown bar */
+  .categories-section {
+    margin-bottom: 2.5rem;
+  }
+
+  .categories-section h2 {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+  }
+
+  .cat-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .cat-bar-row {
+    display: grid;
+    grid-template-columns: 220px 1fr 50px;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .cat-bar-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    text-align: right;
+  }
+
+  .cat-bar-track {
+    height: 20px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .cat-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #818cf8);
+    border-radius: 4px;
+    min-width: 2px;
+    transition: width 0.8s ease-out;
+  }
+
+  .cat-bar-count {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-bar label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-right: 0.5rem;
+  }
+
+  .filter-btn {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .filter-btn.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Findings */
+  .findings-section h2 {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+  }
+
+  .finding-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    transition: background 0.2s;
+  }
+
+  .finding-card:hover {
+    background: var(--bg-card-hover);
+  }
+
+  .finding-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .sev-badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    min-width: 72px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .sev-badge.CRITICAL { background: var(--critical-bg); color: var(--critical); border: 1px solid rgba(239,68,68,0.2); }
+  .sev-badge.HIGH { background: var(--high-bg); color: var(--high); border: 1px solid rgba(249,115,22,0.2); }
+  .sev-badge.MEDIUM { background: var(--medium-bg); color: var(--medium); border: 1px solid rgba(234,179,8,0.2); }
+  .sev-badge.LOW { background: var(--low-bg); color: var(--low); border: 1px solid rgba(34,197,94,0.2); }
+  .sev-badge.INFO { background: var(--info-bg); color: var(--info-c); border: 1px solid rgba(56,189,248,0.2); }
+
+  .finding-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .finding-id {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .finding-chevron {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+  }
+
+  .finding-card.open .finding-chevron {
+    transform: rotate(90deg);
+  }
+
+  .finding-body {
+    display: none;
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .finding-card.open .finding-body {
+    display: block;
+  }
+
+  .finding-section {
+    margin-top: 1rem;
+  }
+
+  .finding-section-title {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.4rem;
+  }
+
+  .finding-section p {
+    font-size: 0.825rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .affected-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .affected-list li {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    padding: 0.2rem 0;
+    border-bottom: 1px solid rgba(42, 53, 72, 0.5);
+  }
+
+  .affected-list li:last-child { border: none; }
+
+  .ref-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .ref-list li {
+    font-size: 0.8rem;
+    color: var(--accent);
+    padding: 0.15rem 0;
+  }
+
+  .ref-list li::before {
+    content: '→ ';
+    color: var(--text-muted);
+  }
+
+  .remediation-text {
+    background: rgba(34, 197, 94, 0.05);
+    border-left: 3px solid var(--low);
+    padding: 0.75rem 1rem;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.825rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .summary-grid { grid-template-columns: 1fr; }
+    .severity-grid { grid-template-columns: repeat(2, 1fr); }
+    .cat-bar-row { grid-template-columns: 140px 1fr 40px; }
+  }
+
+  /* Print */
+  @media print {
+    body { background: white; color: #111; }
+    .finding-body { display: block !important; }
+    .noise { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="container">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>&#x1f6e1; CrowdStrike Falcon</h1>
+      <div class="subtitle">Security Assessment Report</div>
+    </div>
+    <div class="header-right">
+      <span>Scan: 2026-03-08T07:27:04</span>
+      <span>Source: sample_data</span>
+      <span>Modules: prevention, updates, response, device, exclusions, sensors, admin, ioas, firewall, mitre</span>
+    </div>
+  </div>
+
+  <!-- Summary Grid -->
+  <div class="summary-grid">
+    <div class="risk-card">
+      <div class="risk-score-ring">
+        <svg viewBox="0 0 140 140">
+          <circle cx="70" cy="70" r="60" fill="none" stroke="#1e293b" stroke-width="10"/>
+          <circle cx="70" cy="70" r="60" fill="none" stroke="#dc2626" stroke-width="10"
+            stroke-dasharray="377.0 0.0"
+            stroke-linecap="round"/>
+        </svg>
+        <div class="score-text">
+          <div class="score-number">100</div>
+          <div class="score-label">Risk Score</div>
+        </div>
+      </div>
+      <div class="risk-level">Critical Risk</div>
+    </div>
+
+    <div class="severity-grid">
+      <div class="sev-card critical">
+        <div class="sev-count">6</div>
+        <div class="sev-label">Critical</div>
+      </div>
+      <div class="sev-card high">
+        <div class="sev-count">16</div>
+        <div class="sev-label">High</div>
+      </div>
+      <div class="sev-card medium">
+        <div class="sev-count">11</div>
+        <div class="sev-label">Medium</div>
+      </div>
+      <div class="sev-card low">
+        <div class="sev-count">3</div>
+        <div class="sev-label">Low</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Breakdown -->
+  <div class="categories-section">
+    <h2>Findings by Category</h2>
+    <div class="cat-bars">
+      
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">Prevention Policy</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 100.0%"></div></div>
+        <div class="cat-bar-count">15</div>
+      </div>
+
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">Exclusion Audit</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 40.0%"></div></div>
+        <div class="cat-bar-count">6</div>
+      </div>
+
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">Sensor Health</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 26.666666666666668%"></div></div>
+        <div class="cat-bar-count">4</div>
+      </div>
+
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">Admin Security</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 26.666666666666668%"></div></div>
+        <div class="cat-bar-count">4</div>
+      </div>
+
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">Sensor Updates</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 20.0%"></div></div>
+        <div class="cat-bar-count">3</div>
+      </div>
+
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">Response Policy</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 6.666666666666667%"></div></div>
+        <div class="cat-bar-count">1</div>
+      </div>
+
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">Device Control</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 6.666666666666667%"></div></div>
+        <div class="cat-bar-count">1</div>
+      </div>
+
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">Custom IOAs</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 6.666666666666667%"></div></div>
+        <div class="cat-bar-count">1</div>
+      </div>
+
+      <div class="cat-bar-row">
+        <div class="cat-bar-label">MITRE Coverage</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width: 6.666666666666667%"></div></div>
+        <div class="cat-bar-count">1</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <label>Filter:</label>
+    <button class="filter-btn active" onclick="filterFindings('ALL')">All (36)</button>
+    <button class="filter-btn" onclick="filterFindings('CRITICAL')">Critical (6)</button>
+    <button class="filter-btn" onclick="filterFindings('HIGH')">High (16)</button>
+    <button class="filter-btn" onclick="filterFindings('MEDIUM')">Medium (11)</button>
+    <button class="filter-btn" onclick="filterFindings('LOW')">Low (3)</button>
+  </div>
+
+  <!-- Findings -->
+  <div class="findings-section">
+    <h2>Detailed Findings (36)</h2>
+    
+    <div class="finding-card" data-severity="CRITICAL" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge CRITICAL">CRITICAL</span>
+        <span class="finding-title">Hosts without prevention policy (2)</span>
+        <span class="finding-id">PREV-008</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Hosts with sensor but NO prevention policy = unprotected.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (2)</div>
+                  <ul class="affected-list"><li>SRV-002</li><li>UNMANAGED-1</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Assign prevention policy to all host groups.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Policy Coverage</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="CRITICAL" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge CRITICAL">CRITICAL</span>
+        <span class="finding-title">Ransomware prevention not enabled in &#x27;Default-Policy&#x27;</span>
+        <span class="finding-id">PREV-009</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Ransomware protection is disabled or detect-only.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Policy: Default-Policy, ransomware: DISABLED</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable ransomware prevention in BLOCK mode.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Ransomware Protection</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="CRITICAL" data-category="Exclusion Audit">
+      <div class="finding-header">
+        <span class="sev-badge CRITICAL">CRITICAL</span>
+        <span class="finding-title">Dangerous ML exclusion paths (10)</span>
+        <span class="finding-id">EXC-001</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>ML exclusions on attacker-abused paths — malware won&#x27;t be detected.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (10)</div>
+                  <ul class="affected-list"><li>C:\Windows\Temp\* — scope: ALL hosts</li><li>C:\Windows\Temp\* — scope: ALL hosts</li><li>C:\Users\*\AppData\Local\Temp\* — scope: ALL hosts</li><li>C:\Users\*\AppData\Local\Temp\* — scope: ALL hosts</li><li>C:\ProgramData\CompanyApp\* — scope: 1 group(s)</li><li>C:\ProgramData\CompanyApp\* — scope: 1 group(s)</li><li>*.ps1 (executable extension exclusion)</li><li>D:\Backups\** — scope: ALL hosts</li><li>C:\Tools\powershell.exe — scope: 1 group(s)</li><li>C:\Program Files\LegacyApp\* — scope: ALL hosts</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Remove broad path exclusions. Use process+path combination instead. Never exclude temp folders, user profiles, or entire drives.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Exclusion Best Practices</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="CRITICAL" data-category="Exclusion Audit">
+      <div class="finding-header">
+        <span class="sev-badge CRITICAL">CRITICAL</span>
+        <span class="finding-title">Sensor Visibility exclusions on dangerous paths (3)</span>
+        <span class="finding-id">EXC-004</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>SV exclusions stop the sensor from collecting ANY telemetry — complete blind spot.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (3)</div>
+                  <ul class="affected-list"><li>C:\Windows\Temp\* — scope: ALL hosts</li><li>C:\Windows\Temp\* — scope: ALL hosts</li><li>/tmp/* — scope: ALL hosts</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">SV exclusions should be extremely rare. Remove unless causing proven performance issues.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Sensor Visibility vs ML Exclusions</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="CRITICAL" data-category="Exclusion Audit">
+      <div class="finding-header">
+        <span class="sev-badge CRITICAL">CRITICAL</span>
+        <span class="finding-title">Exclusions for commonly abused processes (2)</span>
+        <span class="finding-id">EXC-007</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Processes excluded that attackers routinely abuse (LOLBins).</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (2)</div>
+                  <ul class="affected-list"><li>C:\Tools\powershell.exe: excludes powershell.exe</li><li>C:\Tools\powershell.exe: excludes sh</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">NEVER exclude PowerShell, cmd, wscript, mshta, certutil, etc.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>MITRE ATT&amp;CK — LOLBins</li><li>CrowdStrike — Dangerous Exclusions</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="CRITICAL" data-category="Sensor Health">
+      <div class="finding-header">
+        <span class="sev-badge CRITICAL">CRITICAL</span>
+        <span class="finding-title">Hosts in Reduced Functionality Mode (1)</span>
+        <span class="finding-id">SENSOR-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>RFM sensors have severely limited detection — nearly unprotected.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>SRV-002</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">RFM usually indicates kernel incompatibility. Update sensor or OS kernel.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — RFM Troubleshooting</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">NGAV settings disabled in &#x27;Default-Policy&#x27; (3)</span>
+        <span class="finding-id">PREV-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Policy &#x27;Default-Policy&#x27; has critical NGAV settings disabled.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (3)</div>
+                  <ul class="affected-list"><li>Sensor Anti-Malware: DISABLED — Offline ML protection</li><li>Adware &amp; PUP: DISABLED — Potentially unwanted programs</li><li>On-Sensor ML Level: DISABLED — Sensor-based ML aggressiveness</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable Cloud Anti-Malware, Sensor Anti-Malware, and Adware/PUP detection.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Recommended Prevention Settings</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">NGAV settings disabled in &#x27;Server-Policy&#x27; (1)</span>
+        <span class="finding-id">PREV-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Policy &#x27;Server-Policy&#x27; has critical NGAV settings disabled.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Adware &amp; PUP: not set — Potentially unwanted programs</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable Cloud Anti-Malware, Sensor Anti-Malware, and Adware/PUP detection.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Recommended Prevention Settings</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">NGAV settings disabled in &#x27;VIP-Policy&#x27; (1)</span>
+        <span class="finding-id">PREV-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Policy &#x27;VIP-Policy&#x27; has critical NGAV settings disabled.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Adware &amp; PUP: not set — Potentially unwanted programs</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable Cloud Anti-Malware, Sensor Anti-Malware, and Adware/PUP detection.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Recommended Prevention Settings</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Behavioral prevention gaps in &#x27;Default-Policy&#x27; (5)</span>
+        <span class="finding-id">PREV-003</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Behavioral IOA settings disabled — exploits and scripts may not be blocked.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (5)</div>
+                  <ul class="affected-list"><li>Suspicious Processes: DISABLED</li><li>Suspicious Registry Ops: DISABLED</li><li>Suspicious Scripts: DISABLED</li><li>Suspicious Kernel Drivers: DISABLED</li><li>Interpreter Protection: DISABLED</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable: Suspicious Processes, Registry Ops, Scripts, Intel Threats, Kernel Drivers.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Behavior-Based Prevention</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Behavioral prevention gaps in &#x27;Server-Policy&#x27; (4)</span>
+        <span class="finding-id">PREV-003</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Behavioral IOA settings disabled — exploits and scripts may not be blocked.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (4)</div>
+                  <ul class="affected-list"><li>Suspicious Registry Ops: not set</li><li>Intelligence-Sourced Threats: not set</li><li>Suspicious Kernel Drivers: not set</li><li>Interpreter Protection: not set</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable: Suspicious Processes, Registry Ops, Scripts, Intel Threats, Kernel Drivers.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Behavior-Based Prevention</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Behavioral prevention gaps in &#x27;VIP-Policy&#x27; (5)</span>
+        <span class="finding-id">PREV-003</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Behavioral IOA settings disabled — exploits and scripts may not be blocked.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (5)</div>
+                  <ul class="affected-list"><li>Suspicious Registry Ops: not set</li><li>Suspicious Scripts: not set</li><li>Intelligence-Sourced Threats: not set</li><li>Suspicious Kernel Drivers: not set</li><li>Interpreter Protection: not set</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable: Suspicious Processes, Registry Ops, Scripts, Intel Threats, Kernel Drivers.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Behavior-Based Prevention</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">ML detection levels low in &#x27;Default-Policy&#x27;</span>
+        <span class="finding-id">PREV-005</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Low ML sensitivity reduces zero-day detection.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (2)</div>
+                  <ul class="affected-list"><li>Cloud ML: CAUTIOUS (recommend: MODERATE or AGGRESSIVE)</li><li>Sensor ML: DISABLED (recommend: MODERATE or AGGRESSIVE)</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Set ML levels to MODERATE minimum, AGGRESSIVE for high-security hosts.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — ML Detection Levels</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Policies in detect-only mode (1)</span>
+        <span class="finding-id">PREV-006</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Settings detect threats but do NOT block them.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>&#x27;Default-Policy&#x27;: 7 settings in detect-only mode</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">After tuning baseline, switch from detect-only to prevent mode.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Deployment: Detect → Prevent</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Script-Based Execution Monitoring disabled in &#x27;Default-Policy&#x27;</span>
+        <span class="finding-id">PREV-010</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>PowerShell, VBScript, JScript, and macro monitoring is off.</p>
+        </div>
+        
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable Script-Based Execution Monitoring.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Script Monitoring</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Sensor Updates">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Sensor uninstall protection disabled (1)</span>
+        <span class="finding-id">UPD-004</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Sensors can be removed by local admins without a maintenance token.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Pinned-Legacy</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable Uninstall and Maintenance Protection on all policies.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Uninstall Protection</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Exclusion Audit">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">ML exclusions applied to ALL hosts (5)</span>
+        <span class="finding-id">EXC-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Global exclusions affect every endpoint.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (5)</div>
+                  <ul class="affected-list"><li>C:\Windows\Temp\*</li><li>C:\Users\*\AppData\Local\Temp\*</li><li>*.ps1</li><li>D:\Backups\**</li><li>C:\Program Files\LegacyApp\*</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Scope exclusions to specific host groups, not global.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Scoped Exclusions</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Exclusion Audit">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Excessive IOA exclusions (25)</span>
+        <span class="finding-id">EXC-003</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Many IOA exclusions reduce behavioral detection coverage.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Total IOA exclusions: 25</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Review and remove unnecessary IOA exclusions. Each one is a detection blind spot.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — IOA Exclusion Management</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Exclusion Audit">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Wildcard exclusions detected (7)</span>
+        <span class="finding-id">EXC-005</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Wildcard exclusions (\*, /**) are overly broad.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (7)</div>
+                  <ul class="affected-list"><li>C:\Windows\Temp\*</li><li>C:\Users\*\AppData\Local\Temp\*</li><li>C:\ProgramData\CompanyApp\*</li><li>D:\Backups\**</li><li>C:\Program Files\LegacyApp\*</li><li>C:\Windows\Temp\*</li><li>/tmp/*</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Replace wildcards with specific file/process exclusions.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Exclusion Best Practices</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Sensor Health">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Sensors not in normal status (2)</span>
+        <span class="finding-id">SENSOR-001</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Sensors offline/degraded = no protection.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (2)</div>
+                  <ul class="affected-list"><li>SRV-002</li><li>OLD-PC</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Investigate offline sensors. Reinstall if necessary.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Sensor Troubleshooting</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Admin Security">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">Falcon console users without MFA (2)</span>
+        <span class="finding-id">ADMIN-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Console access without MFA = account takeover risk.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (2)</div>
+                  <ul class="affected-list"><li>soc2@corp.com</li><li>contractor@vendor.com</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enforce MFA for all Falcon console users.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — MFA Configuration</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="HIGH" data-category="Admin Security">
+      <div class="finding-header">
+        <span class="sev-badge HIGH">HIGH</span>
+        <span class="finding-title">API clients with broad scopes (1)</span>
+        <span class="finding-id">ADMIN-003</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>API clients with write/admin access.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Automation-Bot</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Restrict API scopes to minimum required. Use read-only where possible.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — OAuth2 API Scopes</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Exploit mitigations disabled in &#x27;Default-Policy&#x27; (5)</span>
+        <span class="finding-id">PREV-004</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Memory exploit protections not fully enabled.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (5)</div>
+                  <ul class="affected-list"><li>Force ASLR: not enabled — Address Space Layout Randomization</li><li>Force DEP: not enabled — Data Execution Prevention</li><li>Heap Spray Protection: not enabled — Heap spray preallocation</li><li>Null Page Allocation: not enabled — Null page protection</li><li>SEH Overwrite: not enabled — Structured Exception Handler protection</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable ASLR, DEP, Heap Spray, Null Page, and SEH protections.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Exploit Mitigation Settings</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Exploit mitigations disabled in &#x27;Server-Policy&#x27; (5)</span>
+        <span class="finding-id">PREV-004</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Memory exploit protections not fully enabled.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (5)</div>
+                  <ul class="affected-list"><li>Force ASLR: not enabled — Address Space Layout Randomization</li><li>Force DEP: not enabled — Data Execution Prevention</li><li>Heap Spray Protection: not enabled — Heap spray preallocation</li><li>Null Page Allocation: not enabled — Null page protection</li><li>SEH Overwrite: not enabled — Structured Exception Handler protection</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable ASLR, DEP, Heap Spray, Null Page, and SEH protections.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Exploit Mitigation Settings</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Exploit mitigations disabled in &#x27;VIP-Policy&#x27; (5)</span>
+        <span class="finding-id">PREV-004</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Memory exploit protections not fully enabled.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (5)</div>
+                  <ul class="affected-list"><li>Force ASLR: not enabled — Address Space Layout Randomization</li><li>Force DEP: not enabled — Data Execution Prevention</li><li>Heap Spray Protection: not enabled — Heap spray preallocation</li><li>Null Page Allocation: not enabled — Null page protection</li><li>SEH Overwrite: not enabled — Structured Exception Handler protection</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Enable ASLR, DEP, Heap Spray, Null Page, and SEH protections.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Exploit Mitigation Settings</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Prevention Policy">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Prevention policies not assigned to any host group (1)</span>
+        <span class="finding-id">PREV-007</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Unassigned policies have no effect on any hosts.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Server-Policy</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Assign policies to appropriate host groups.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Policy Assignment</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Sensor Updates">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Sensor update policies with pinned versions (1)</span>
+        <span class="finding-id">UPD-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Pinned sensor versions miss new detection capabilities.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Pinned-Legacy</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Use N-1 or N-2 auto-update. Avoid pinning to specific versions.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Sensor Update Rings</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Sensor Updates">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Multiple sensor versions deployed (4 versions)</span>
+        <span class="finding-id">UPD-003</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Too many sensor versions indicates inconsistent update policies.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (4)</div>
+                  <ul class="affected-list"><li>Version 7.10.18110: 5 hosts</li><li>Version 7.08.17608: 1 hosts</li><li>Version 6.45.15806: 1 hosts</li><li>Version 6.30.14505: 1 hosts</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Standardize on N-1 version. Use update rings.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Sensor Version Management</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Response Policy">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Unrestricted custom RTR scripts enabled</span>
+        <span class="finding-id">RSP-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Any admin can run custom scripts on endpoints.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>Default-RTR</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Restrict RTR to predefined commands. Require approval for custom scripts.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — RTR Security</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Device Control">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">USB policies with default ALLOW (1)</span>
+        <span class="finding-id">DEV-002</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>All USB devices allowed by default.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>USB-Allow</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Set default action to BLOCK. Allowlist specific approved devices.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — USB Device Management</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Sensor Health">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Stale sensors (&gt;30 days offline) (1)</span>
+        <span class="finding-id">SENSOR-003</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Hosts haven&#x27;t checked in for 30+ days.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (1)</div>
+                  <ul class="affected-list"><li>OLD-PC: last seen 2025-12-15</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Remove decommissioned hosts. Investigate unreachable sensors.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Host Management</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Admin Security">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">Excessive Falcon admin accounts (6)</span>
+        <span class="finding-id">ADMIN-001</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Too many users with Falcon Admin role.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (6)</div>
+                  <ul class="affected-list"><li>admin@corp.com</li><li>soc1@corp.com</li><li>soc2@corp.com</li><li>soc3@corp.com</li><li>it-ops@corp.com</li><li>contractor@vendor.com</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Limit Falcon Admins. Use Endpoint Manager role for policy management.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — RBAC Best Practices</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="MEDIUM" data-category="Custom IOAs">
+      <div class="finding-header">
+        <span class="sev-badge MEDIUM">MEDIUM</span>
+        <span class="finding-title">No custom IOA rules configured</span>
+        <span class="finding-id">IOA-001</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>No environment-specific behavioral detection rules.</p>
+        </div>
+        
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Create custom IOA rules for your environment-specific threats.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Custom IOA Rule Groups</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="LOW" data-category="Sensor Health">
+      <div class="finding-header">
+        <span class="sev-badge LOW">LOW</span>
+        <span class="finding-title">Sensor OS distribution (informational)</span>
+        <span class="finding-id">SENSOR-004</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Sensor fleet composition for coverage analysis.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (3)</div>
+                  <ul class="affected-list"><li>Windows: 5 hosts</li><li>Linux: 2 hosts</li><li>Mac: 1 hosts</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Ensure all OS types have appropriate prevention policies.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Platform Coverage</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="LOW" data-category="Admin Security">
+      <div class="finding-header">
+        <span class="sev-badge LOW">LOW</span>
+        <span class="finding-title">No custom admin roles defined</span>
+        <span class="finding-id">ADMIN-004</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Using only default roles — may not follow least privilege.</p>
+        </div>
+        
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Create custom roles for SOC analysts, policy managers, read-only.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>CrowdStrike — Custom RBAC Roles</li></ul>
+                </div>
+      </div>
+    </div>
+
+    <div class="finding-card" data-severity="LOW" data-category="MITRE Coverage">
+      <div class="finding-header">
+        <span class="sev-badge LOW">LOW</span>
+        <span class="finding-title">MITRE ATT&amp;CK technique coverage assessment</span>
+        <span class="finding-id">MITRE-001</span>
+        <span class="finding-chevron">&#9654;</span>
+      </div>
+      <div class="finding-body">
+        <div class="finding-section">
+          <div class="finding-section-title">Description</div>
+          <p>Top 10 MITRE ATT&amp;CK techniques and prevention posture.</p>
+        </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Affected Items (11)</div>
+                  <ul class="affected-list"><li>T1059 — Command and Scripting Interpreter</li><li>T1053 — Scheduled Task/Job</li><li>T1003 — OS Credential Dumping</li><li>T1021 — Remote Services</li><li>T1055 — Process Injection</li><li>T1078 — Valid Accounts</li><li>T1486 — Data Encrypted for Impact (Ransomware)</li><li>T1082 — System Information Discovery</li><li>T1047 — Windows Management Instrumentation</li><li>T1218 — System Binary Proxy Execution (LOLBins)</li><li>No gaps detected</li></ul>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">Remediation</div>
+                  <div class="remediation-text">Map prevention settings to MITRE ATT&amp;CK matrix. Close detection gaps.</div>
+                </div>
+        
+                <div class="finding-section">
+                  <div class="finding-section-title">References</div>
+                  <ul class="ref-list"><li>MITRE ATT&amp;CK — Enterprise</li><li>CrowdStrike — ATT&amp;CK Coverage</li></ul>
+                </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    CrowdStrike Falcon Security Scanner &middot; Generated 2026-03-08T07:27:04 &middot;
+    For authorized security assessments only
+  </div>
+</div>
+
+<script>
+// Toggle finding details
+document.querySelectorAll('.finding-header').forEach(el => {
+  el.addEventListener('click', () => {
+    el.parentElement.classList.toggle('open');
+  });
+});
+
+// Severity filter
+function filterFindings(sev) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.finding-card').forEach(card => {
+    if (sev === 'ALL' || card.dataset.severity === sev) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+
+// Expand all for print
+window.addEventListener('beforeprint', () => {
+  document.querySelectorAll('.finding-card').forEach(c => c.classList.add('open'));
+});
+</script>
+</body>
+</html>

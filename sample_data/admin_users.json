@@ -1,0 +1,46 @@
+{
+  "resources": [
+    {
+      "uid": "admin@corp.com",
+      "roles": [
+        "falcon_admin"
+      ],
+      "mfa_enabled": true
+    },
+    {
+      "uid": "soc1@corp.com",
+      "roles": [
+        "falcon_admin"
+      ],
+      "mfa_enabled": true
+    },
+    {
+      "uid": "soc2@corp.com",
+      "roles": [
+        "falcon_admin"
+      ],
+      "mfa_enabled": false
+    },
+    {
+      "uid": "soc3@corp.com",
+      "roles": [
+        "falcon_admin"
+      ],
+      "mfa_enabled": true
+    },
+    {
+      "uid": "it-ops@corp.com",
+      "roles": [
+        "falcon_admin"
+      ],
+      "mfa_enabled": true
+    },
+    {
+      "uid": "contractor@vendor.com",
+      "roles": [
+        "falcon_admin"
+      ],
+      "mfa_enabled": false
+    }
+  ]
+}
